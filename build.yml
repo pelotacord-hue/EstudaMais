@@ -1,0 +1,56 @@
+
+name: Gerador de APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '*.zip'
+      - '.github/workflows/build.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar arquivos
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Extrair ZIP e compilar
+        run: |
+          ZIP=$(find . -maxdepth 1 -iname '*.zip' -type f | head -n 1)
+
+          if [ -z "$ZIP" ]; then
+            echo "Nenhum ZIP encontrado!"
+            exit 1
+          fi
+
+          mkdir -p projeto
+          unzip -q "$ZIP" -d projeto
+
+          BUILD_FILE=$(find projeto -name settings.gradle.kts -o -name settings.gradle | head -n 1)
+
+          if [ -z "$BUILD_FILE" ]; then
+            echo "Projeto Android não encontrado!"
+            exit 1
+          fi
+
+          cd "$(dirname "$BUILD_FILE")"
+          gradle assembleDebug
+
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: EstudaPlus-APK
+          path: projeto/**/app/build/outputs/apk/debug/*.apk
